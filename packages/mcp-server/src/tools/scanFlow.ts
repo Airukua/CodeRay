@@ -114,6 +114,9 @@ export async function handleScanDataFlow(args: {
       id: n.id,
       category: n.category,
       label: n.label,
+      ...(n.inputFormat ? { inputFormat: n.inputFormat } : {}),
+      ...(n.outputFormat ? { outputFormat: n.outputFormat } : {}),
+      ...(n.schemaOrType ? { contract: n.schemaOrType } : {}),
     })),
     ...(filteredNodes.length > slicedNodes.length
       ? { truncatedNodes: filteredNodes.length - slicedNodes.length }

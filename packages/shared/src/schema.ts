@@ -42,6 +42,7 @@ export const FlowNodeSchema = z.object({
   lineRange: z.tuple([z.number(), z.number()]),
   group: z.string().optional(),
   inputFormat: z.string().optional(),
+  outputFormat: z.string().optional(),
   description: z.string().optional(),
   stepOrder: z.number().optional(),
   schemaOrType: z.string().optional(),

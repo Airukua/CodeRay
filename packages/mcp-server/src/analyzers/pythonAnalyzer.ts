@@ -74,6 +74,7 @@ export async function analyzePython(
             language: "python",
             filePath,
             lineRange: [row + 1, endRow + 1],
+            inputFormat: "Pydantic BaseModel (JSON)",
             schemaOrType: `Pydantic: ${name}(${fields.join(", ")})`,
             codeSnippet: getSnippet(lines, row, endRow, 8),
             metadata: fields.length > 0 ? { fields } : undefined,
@@ -108,6 +109,7 @@ export async function analyzePython(
             language: "python",
             filePath,
             lineRange: [row + 1, row + 3],
+            inputFormat: `FastAPI HTTP ${method}`,
             schemaOrType: `FastAPI ${method} ${endpoint}`,
             codeSnippet: getSnippet(lines, row, row + 3, 4),
             metadata: { endpoint },
@@ -221,6 +223,7 @@ export async function analyzePython(
         const fnText = node.childForFieldName("function")?.text ?? "";
         if (fnText === "JSONResponse") {
           const scope = getEnclosingPythonScope(node);
+          const argsText = node.childForFieldName("arguments")?.text ?? "";
           addNode({
             id: makeNodeId("out", filePath, row, "json_response"),
             label: "JSONResponse",
@@ -228,6 +231,8 @@ export async function analyzePython(
             language: "python",
             filePath,
             lineRange: [row + 1, endRow + 1],
+            outputFormat: "HTTP JSONResponse",
+            schemaOrType: argsText.replace(/\s+/g, " ").slice(0, 100) || "JSONResponse",
             codeSnippet: getSnippet(lines, row, endRow, 4),
             metadata: scope ? { scopeName: scope } : undefined,
           });
@@ -240,6 +245,8 @@ export async function analyzePython(
             language: "python",
             filePath,
             lineRange: [row + 1, endRow + 1],
+            outputFormat: "ORM Transaction",
+            schemaOrType: node.text.replace(/\s+/g, " ").slice(0, 100),
             codeSnippet: getSnippet(lines, row, endRow, 3),
             metadata: scope ? { scopeName: scope } : undefined,
           });
@@ -253,6 +260,7 @@ export async function analyzePython(
           language: "python",
           filePath,
           lineRange: [row + 1, endRow + 1],
+          outputFormat: "Python Return Value",
           schemaOrType: node.text.replace(/\s+/g, " ").slice(0, 90),
           codeSnippet: getSnippet(lines, row, endRow, 3),
           metadata: scope ? { scopeName: scope } : undefined,

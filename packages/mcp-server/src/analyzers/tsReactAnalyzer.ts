@@ -131,6 +131,7 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
+            inputFormat: `HTTP ${name} Request`,
             schemaOrType: params || "Request",
             codeSnippet: getSnippet(lines, row, endRow, 6),
           });
@@ -142,6 +143,7 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
+            inputFormat: "React Props",
             schemaOrType: params,
             codeSnippet: getSnippet(lines, row, row + 2, 3),
           });
@@ -168,6 +170,7 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
+            inputFormat: "Zod Object Schema",
             schemaOrType: schemaSummary.slice(0, 120),
             codeSnippet: getSnippet(lines, row, endRow, 6),
             metadata:
@@ -221,6 +224,7 @@ export async function analyzeTypeScript(
           fnText === "Response.json" ||
           fnText === "redirect"
         ) {
+          const argSummary = (argsNode?.text ?? "").replace(/\s+/g, " ").slice(0, 100);
           addNode({
             id: makeNodeId("out", filePath, row, fnText.replace(".", "_")),
             label: fnText,
@@ -228,11 +232,13 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
+            outputFormat: fnText === "redirect" ? "HTTP Redirect" : "HTTP JSON Response",
+            schemaOrType: argSummary || fnText,
             codeSnippet: getSnippet(lines, row, endRow, 5),
           });
         } else if (fnText === "fetch") {
-          const isMutation = /method\s*:\s*["'`](POST|PUT|PATCH|DELETE)["'`]/i.test(fullText);
-          if (isMutation) {
+          const methodMatch = /method\s*:\s*["'`](POST|PUT|PATCH|DELETE)["'`]/i.exec(fullText);
+          if (methodMatch) {
             const meta = extractFetchMetadata(fullText);
             addNode({
               id: makeNodeId("out", filePath, row, "fetch_mutation"),
@@ -241,6 +247,7 @@ export async function analyzeTypeScript(
               language,
               filePath,
               lineRange: [row + 1, endRow + 1],
+              outputFormat: `HTTP ${methodMatch[1].toUpperCase()} JSON`,
               schemaOrType: meta.fields ? `Payload: { ${meta.fields.join(", ")} }` : "HTTP Mutation",
               codeSnippet: getSnippet(lines, row, endRow, 6),
               metadata: meta,
@@ -254,6 +261,8 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
+            outputFormat: "Database Mutation",
+            schemaOrType: fullText.replace(/\s+/g, " ").slice(0, 100),
             codeSnippet: getSnippet(lines, row, endRow, 5),
           });
         }
@@ -326,6 +335,7 @@ export async function analyzeTypeScript(
           language,
           filePath,
           lineRange: [row + 1, endRow + 1],
+          outputFormat: "React JSX Element",
           schemaOrType: firstJsxLine.slice(0, 90),
           codeSnippet: getSnippet(lines, row, endRow, 6),
           metadata: scopeName ? { scopeName } : undefined,
