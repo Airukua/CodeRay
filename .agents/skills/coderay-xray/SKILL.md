@@ -36,8 +36,12 @@ Skip the following paths unless the user explicitly asks to audit them:
    - Call `validate_architecture_rules` on the same filtered `filePaths` and `projectRoot` to catch `IMPLICIT_STATE_LEAK` and cross-boundary contract mismatches.
 3. **Inspect Key Nodes for Context**
    - Use `inspect_node_contract` (or read the relevant lines) on key Input Gates, State Machines, Implicit Warnings, and Output Gates to understand how data actually flows between files.
-4. **Publish an End-to-End Grouped Story**
-   - Call `publish_flow_story` to present the complete journey from **User / Client Request -> Input Gate (explicit `inputFormat`) -> Internal Processing / State / Warnings -> Final Output**:
+4. **Publish a Detailed Implicit State Machine Story**
+   - Call `publish_flow_story` to present the complete journey from **User / Client Request -> Input Gate (explicit `inputFormat`) -> Detailed State Transitions & Implicit Warnings -> Final Output**:
+     - **Do NOT collapse a stage into a single vague summary card** or tack a single warning onto the very end. Model the **real internal state machine**:
+       - Include explicit **state transitions & guards** (e.g., routing branches, calibration/validation gates, parity checks before release).
+       - Include **every implicit/hidden state** inline where it occurs (in-memory caches like `ram_cached`, global/module mutations, `os.environ` / `process.env`, disk checkpoint/artifact writes) as `STATE_MACHINE` or `IMPLICIT_WARNING` nodes with `isImplicitLeak: true` edges.
+       - Include explicit tensor/payload contracts in `schemaOrType` on `OUTPUT_GATE` nodes as well as `INPUT_GATE` nodes.
      - Set `group` on every node (e.g., `"Stage 1: Input & Validation"`, `"Stage 2: Core Logic / AST"`, `"Stage 3: State & Transport"`, `"Stage 4: Output / UI"`) so the Visualizer UI renders clean stage containers without tangled lines.
      - Set `stepOrder` (`1, 2, 3...`), `inputFormat` on `INPUT_GATE` nodes (e.g., `"HTTP POST JSON"`, `"MCP Tool Args (Zod)"`, `"React Props"`), and a concise 1-sentence `description` per node.
 5. **Report Findings Clearly**

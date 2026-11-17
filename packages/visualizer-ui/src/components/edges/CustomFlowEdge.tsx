@@ -50,7 +50,7 @@ export function CustomFlowEdge({
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY + labelOffsetY}px)`,
             }}
-            className={`nodrag nopan pointer-events-auto absolute z-10 rounded-md border px-2 py-0.5 text-[11px] font-medium shadow-sm ${
+            className={`nodrag nopan pointer-events-auto absolute z-10 max-w-[200px] whitespace-normal rounded-md border px-2 py-1 text-center text-[11px] font-medium leading-tight shadow-sm ${
               isLeak
                 ? "border-red-500/40 bg-[#1A0E14] text-red-300"
                 : "border-white/10 bg-[#0B1120] text-slate-200"

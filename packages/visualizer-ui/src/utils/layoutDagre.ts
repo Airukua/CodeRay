@@ -4,7 +4,7 @@ import type { FlowEdge, FlowGraphPayload, FlowNode } from "@flowguard/shared";
 import type { GroupBoxData } from "../components/nodes/GroupBoxNode";
 
 export const NODE_WIDTH = 320;
-export const NODE_HEIGHT = 200;
+export const NODE_HEIGHT = 220;
 
 export interface FlowNodeData extends Record<string, unknown> {
   flowNode: FlowNode;
@@ -31,11 +31,11 @@ function buildStoryStageLayout(
     nodeToGroup.set(fn.id, key);
   }
 
-  const PAD_X = 24;
+  const PAD_X = 28;
   const PAD_TOP = 58;
-  const PAD_BOTTOM = 24;
-  const NODE_GAP_Y = 36;
-  const GROUP_GAP_X = 150;
+  const PAD_BOTTOM = 28;
+  const NODE_GAP_Y = 40;
+  const GROUP_GAP_X = 260;
 
   const resultNodes: Node[] = [];
   let cursorX = 40;

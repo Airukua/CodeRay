@@ -126,10 +126,10 @@ export function FlowNodeCard({
 
       <div className="space-y-2.5 p-4">
         {/* Header: Step badge, Icon, Title, Language micro-badge */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             {flowNode.stepOrder !== undefined && (
-              <span className="shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-400">
+              <span className="mt-0.5 shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-400">
                 #{flowNode.stepOrder}
               </span>
             )}
@@ -138,26 +138,26 @@ export function FlowNodeCard({
             >
               {style.icon}
             </span>
-            <span className="truncate text-[15px] font-bold tracking-tight text-white">
+            <span className="line-clamp-2 text-[14px] font-bold leading-snug tracking-tight text-white">
               {displayTitle}
             </span>
           </div>
-          <span className="shrink-0 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-slate-300 uppercase">
+          <span className="mt-0.5 shrink-0 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] font-medium tracking-wider text-slate-300 uppercase">
             {flowNode.language}
           </span>
         </div>
 
         {/* Sub-header: Input Format */}
         {flowNode.inputFormat && (
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-emerald-300/90">
+          <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-emerald-300/90">
             <LogIn className="h-3 w-3 shrink-0 text-emerald-400" />
-            <span>{flowNode.inputFormat}</span>
+            <span className="truncate">{flowNode.inputFormat}</span>
           </div>
         )}
 
         {/* Body: Description */}
         {flowNode.description && (
-          <p className="line-clamp-2 text-xs leading-relaxed text-[#94A3B8]">
+          <p className="line-clamp-3 text-xs leading-relaxed text-[#94A3B8]">
             {flowNode.description}
           </p>
         )}
