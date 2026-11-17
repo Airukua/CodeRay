@@ -37,10 +37,26 @@ export function formatGraphAsMermaid(graph: FlowGraphPayload): string {
     return "flowchart LR\n  empty[\"No flow nodes detected\"]";
   }
 
+  const MAX_MERMAID_NODES = 40;
+  let nodesToRender = graph.nodes;
+  if (graph.nodes.length > MAX_MERMAID_NODES) {
+    const connectedIds = new Set<string>();
+    for (const e of graph.edges) {
+      connectedIds.add(e.source);
+      connectedIds.add(e.target);
+    }
+    const prioritized = graph.nodes.filter(
+      (n) => n.category === "IMPLICIT_WARNING" || connectedIds.has(n.id)
+    );
+    const pool = prioritized.length > 0 ? prioritized : graph.nodes;
+    nodesToRender = pool.slice(0, MAX_MERMAID_NODES);
+  }
+  const renderedIds = new Set(nodesToRender.map((n) => n.id));
+
   const lines: string[] = ["flowchart LR"];
   const groups = new Map<string, FlowNode[]>();
 
-  for (const node of graph.nodes) {
+  for (const node of nodesToRender) {
     const groupName = node.group || node.filePath;
     const list = groups.get(groupName) ?? [];
     list.push(node);
@@ -63,6 +79,7 @@ export function formatGraphAsMermaid(graph: FlowGraphPayload): string {
   }
 
   for (const edge of graph.edges) {
+    if (!renderedIds.has(edge.source) || !renderedIds.has(edge.target)) continue;
     const src = sanitizeMermaidId(edge.source);
     const tgt = sanitizeMermaidId(edge.target);
     const arrow = edge.isImplicitLeak ? "-.->" : "-->";

@@ -94,13 +94,15 @@ export async function handleScanDataFlow(args: {
       outputGates: annotatedGraph.nodes.filter((n) => n.category === "OUTPUT_GATE").length,
       edges: annotatedGraph.edges.length,
     },
+    renderHint:
+      "Present a clean Mermaid flowchart LR diagram in your final response (using the mermaid field below or synthesizing an end-to-end flow from these findings).",
+    ...(includeMermaid ? { mermaid: formatGraphAsMermaid(annotatedGraph) } : {}),
     implicitWarnings,
     nodeIds: annotatedGraph.nodes.map((n) => ({
       id: n.id,
       category: n.category,
       label: n.label,
     })),
-    ...(includeMermaid ? { mermaid: formatGraphAsMermaid(annotatedGraph) } : {}),
     ...(diff ? { diff } : {}),
   };
 
