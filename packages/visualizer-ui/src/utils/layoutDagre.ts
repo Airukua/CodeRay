@@ -14,7 +14,7 @@ function makeGroupId(groupTitle: string): string {
   return `group_${groupTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
 }
 
-function buildGroupedLayout(
+function buildStoryStageLayout(
   flowNodes: FlowNode[],
   flowEdges: FlowEdge[],
   collapsedGroups: Set<string>,
@@ -34,17 +34,12 @@ function buildGroupedLayout(
   const PAD_X = 24;
   const PAD_TOP = 58;
   const PAD_BOTTOM = 24;
-  const NODE_GAP_X = 160;
   const NODE_GAP_Y = 36;
-  const MAX_COLS = 1;
   const GROUP_GAP_X = 150;
-  const GROUP_GAP_Y = 80;
-  const MAX_ROW_WIDTH = 99999;
 
   const resultNodes: Node[] = [];
   let cursorX = 40;
-  let cursorY = 40;
-  let rowMaxHeight = 0;
+  const cursorY = 40;
 
   for (const [groupTitle, items] of groups.entries()) {
     items.sort((a, b) => {
@@ -55,21 +50,10 @@ function buildGroupedLayout(
     });
 
     const isCollapsed = collapsedGroups.has(groupTitle);
-    const cols = isCollapsed ? 1 : Math.min(MAX_COLS, Math.max(1, items.length));
-    const rows = isCollapsed ? 1 : Math.ceil(items.length / MAX_COLS);
-
-    const groupWidth = isCollapsed
-      ? 360
-      : PAD_X * 2 + cols * NODE_WIDTH + Math.max(0, cols - 1) * NODE_GAP_X;
+    const groupWidth = isCollapsed ? 360 : PAD_X * 2 + NODE_WIDTH;
     const groupHeight = isCollapsed
       ? 72
-      : PAD_TOP + rows * NODE_HEIGHT + Math.max(0, rows - 1) * NODE_GAP_Y + PAD_BOTTOM;
-
-    if (cursorX > 40 && cursorX + groupWidth > MAX_ROW_WIDTH) {
-      cursorX = 40;
-      cursorY += rowMaxHeight + GROUP_GAP_Y;
-      rowMaxHeight = 0;
-    }
+      : PAD_TOP + items.length * NODE_HEIGHT + Math.max(0, items.length - 1) * NODE_GAP_Y + PAD_BOTTOM;
 
     const groupId = makeGroupId(groupTitle);
     const groupData: GroupBoxData = {
@@ -93,25 +77,165 @@ function buildGroupedLayout(
 
     if (!isCollapsed) {
       items.forEach((fn, index) => {
-        const col = index % MAX_COLS;
-        const row = Math.floor(index / MAX_COLS);
         resultNodes.push({
           id: fn.id,
           type: fn.category,
           position: {
-            x: cursorX + PAD_X + col * (NODE_WIDTH + NODE_GAP_X),
-            y: cursorY + PAD_TOP + row * (NODE_HEIGHT + NODE_GAP_Y),
+            x: cursorX + PAD_X,
+            y: cursorY + PAD_TOP + index * (NODE_HEIGHT + NODE_GAP_Y),
           },
           data: { flowNode: fn },
         });
       });
     }
 
+    cursorX += groupWidth + GROUP_GAP_X;
+  }
+
+  return {
+    nodes: resultNodes,
+    edges: remapCollapsedEdges(flowEdges, nodeToGroup, collapsedGroups),
+  };
+}
+
+function buildFileGridLayout(
+  flowNodes: FlowNode[],
+  flowEdges: FlowEdge[],
+  collapsedGroups: Set<string>,
+  onToggleGroup?: (groupTitle: string) => void
+): { nodes: Node[]; edges: FlowEdge[] } {
+  const groups = new Map<string, FlowNode[]>();
+  const nodeToGroup = new Map<string, string>();
+
+  for (const fn of flowNodes) {
+    const key = fn.filePath;
+    const list = groups.get(key) ?? [];
+    list.push(fn);
+    groups.set(key, list);
+    nodeToGroup.set(fn.id, key);
+  }
+
+  const PAD_X = 24;
+  const PAD_TOP = 58;
+  const PAD_BOTTOM = 24;
+  const GROUP_GAP_X = 120;
+  const GROUP_GAP_Y = 64;
+  const MAX_ROW_WIDTH = 2800;
+
+  const resultNodes: Node[] = [];
+  let cursorX = 40;
+  let cursorY = 40;
+  let rowMaxHeight = 0;
+
+  for (const [filePath, items] of groups.entries()) {
+    const isCollapsed = collapsedGroups.has(filePath);
+    const shortTitle = filePath.split("/").pop() || filePath;
+
+    let groupWidth = 360;
+    let groupHeight = 72;
+    const localPositions = new Map<string, { x: number; y: number }>();
+
+    if (!isCollapsed) {
+      const g = new dagre.graphlib.Graph();
+      g.setDefaultEdgeLabel(() => ({}));
+      g.setGraph({ rankdir: "LR", nodesep: 32, ranksep: 120 });
+
+      const itemIds = new Set(items.map((n) => n.id));
+      for (const fn of items) {
+        g.setNode(fn.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+      }
+      for (const fe of flowEdges) {
+        if (itemIds.has(fe.source) && itemIds.has(fe.target)) {
+          g.setEdge(fe.source, fe.target);
+        }
+      }
+      dagre.layout(g);
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      for (const fn of items) {
+        const pos = g.node(fn.id);
+        const x = pos ? pos.x - NODE_WIDTH / 2 : 0;
+        const y = pos ? pos.y - NODE_HEIGHT / 2 : 0;
+        localPositions.set(fn.id, { x, y });
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x + NODE_WIDTH);
+        maxY = Math.max(maxY, y + NODE_HEIGHT);
+      }
+
+      const contentW = Math.max(NODE_WIDTH, maxX - minX);
+      const contentH = Math.max(NODE_HEIGHT, maxY - minY);
+      groupWidth = PAD_X * 2 + contentW;
+      groupHeight = PAD_TOP + contentH + PAD_BOTTOM;
+
+      for (const [id, pos] of localPositions.entries()) {
+        localPositions.set(id, {
+          x: pos.x - minX + PAD_X,
+          y: pos.y - minY + PAD_TOP,
+        });
+      }
+    }
+
+    if (cursorX > 40 && cursorX + groupWidth > MAX_ROW_WIDTH) {
+      cursorX = 40;
+      cursorY += rowMaxHeight + GROUP_GAP_Y;
+      rowMaxHeight = 0;
+    }
+
+    const groupId = makeGroupId(filePath);
+    const groupData: GroupBoxData = {
+      title: shortTitle,
+      count: items.length,
+      collapsed: isCollapsed,
+      onToggle: onToggleGroup ? () => onToggleGroup(filePath) : undefined,
+    };
+
+    resultNodes.push({
+      id: groupId,
+      type: "GROUP_BOX",
+      position: { x: cursorX, y: cursorY },
+      style: { width: groupWidth, height: groupHeight },
+      data: groupData,
+      draggable: false,
+      selectable: false,
+      focusable: false,
+      zIndex: -1,
+    });
+
+    if (!isCollapsed) {
+      for (const fn of items) {
+        const local = localPositions.get(fn.id) ?? { x: PAD_X, y: PAD_TOP };
+        resultNodes.push({
+          id: fn.id,
+          type: fn.category,
+          position: {
+            x: cursorX + local.x,
+            y: cursorY + local.y,
+          },
+          data: { flowNode: fn },
+        });
+      }
+    }
+
     rowMaxHeight = Math.max(rowMaxHeight, groupHeight);
     cursorX += groupWidth + GROUP_GAP_X;
   }
 
-  // Remap edges when a source or target group is collapsed
+  return {
+    nodes: resultNodes,
+    edges: remapCollapsedEdges(flowEdges, nodeToGroup, collapsedGroups),
+  };
+}
+
+function remapCollapsedEdges(
+  flowEdges: FlowEdge[],
+  nodeToGroup: Map<string, string>,
+  collapsedGroups: Set<string>
+): FlowEdge[] {
   const remappedEdges: FlowEdge[] = [];
   const seenEdgeKeys = new Set<string>();
 
@@ -138,7 +262,7 @@ function buildGroupedLayout(
     });
   }
 
-  return { nodes: resultNodes, edges: remappedEdges };
+  return remappedEdges;
 }
 
 export function buildLayoutedGraph(
@@ -151,50 +275,12 @@ export function buildLayoutedGraph(
 } {
   const hasGroups = payload.nodes.some((n) => Boolean(n.group));
 
-  let nodes: Node[];
-  let activeEdges: FlowEdge[] = payload.edges;
-
-  if (hasGroups) {
-    const grouped = buildGroupedLayout(
-      payload.nodes,
-      payload.edges,
-      collapsedGroups,
-      onToggleGroup
-    );
-    nodes = grouped.nodes;
-    activeEdges = grouped.edges;
-  } else {
-    const g = new dagre.graphlib.Graph();
-    g.setDefaultEdgeLabel(() => ({}));
-    g.setGraph({ rankdir: "LR", nodesep: 64, ranksep: 200 });
-
-    for (const fn of payload.nodes) {
-      g.setNode(fn.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-    }
-    for (const fe of payload.edges) {
-      if (g.hasNode(fe.source) && g.hasNode(fe.target)) {
-        g.setEdge(fe.source, fe.target);
-      }
-    }
-
-    dagre.layout(g);
-
-    nodes = payload.nodes.map((fn) => {
-      const pos = g.node(fn.id);
-      return {
-        id: fn.id,
-        type: fn.category,
-        position: {
-          x: pos ? pos.x - NODE_WIDTH / 2 : 60,
-          y: pos ? pos.y - NODE_HEIGHT / 2 : 60,
-        },
-        data: { flowNode: fn },
-      };
-    });
-  }
+  const layout = hasGroups
+    ? buildStoryStageLayout(payload.nodes, payload.edges, collapsedGroups, onToggleGroup)
+    : buildFileGridLayout(payload.nodes, payload.edges, collapsedGroups, onToggleGroup);
 
   const targetEdgeCount = new Map<string, number>();
-  const edges: Edge[] = activeEdges.map((fe) => {
+  const edges: Edge[] = layout.edges.map((fe) => {
     const isLeak = Boolean(fe.isImplicitLeak);
     const diffColor =
       fe.diffStatus === "added"
@@ -231,5 +317,5 @@ export function buildLayoutedGraph(
     };
   });
 
-  return { nodes, edges };
+  return { nodes: layout.nodes, edges };
 }
