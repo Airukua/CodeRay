@@ -3,7 +3,6 @@ import { z } from "zod";
 import { buildFlowGraph } from "../analyzers/graphBuilder.js";
 import { computeGraphDiff } from "../analyzers/graphDiff.js";
 import { resolveOneHopImports } from "../analyzers/importResolver.js";
-import { formatGraphAsMermaid } from "../analyzers/mermaidFormatter.js";
 import { serverState, updateGraphState } from "../state.js";
 import { resolveSandboxedPaths } from "../utils/pathGuard.js";
 
@@ -24,10 +23,6 @@ export const scanFlowInputSchema = {
     .boolean()
     .optional()
     .describe("Automatically include 1-hop local imports from the specified files"),
-  includeMermaid: z
-    .boolean()
-    .optional()
-    .describe("Include a ready-to-render Mermaid flowchart LR diagram (defaults to true)"),
 };
 
 export async function handleScanDataFlow(args: {
@@ -35,7 +30,6 @@ export async function handleScanDataFlow(args: {
   projectRoot?: string;
   includeDiff?: boolean;
   followLocalImports?: boolean;
-  includeMermaid?: boolean;
 }) {
   if (args.projectRoot) {
     serverState.projectRoot = path.resolve(args.projectRoot);
@@ -83,8 +77,6 @@ export async function handleScanDataFlow(args: {
       warning: n.metadata?.warningMessage,
     }));
 
-  const includeMermaid = args.includeMermaid !== false;
-
   const summary = {
     scannedFilesCount: targetFiles.length,
     counts: {
@@ -94,9 +86,6 @@ export async function handleScanDataFlow(args: {
       outputGates: annotatedGraph.nodes.filter((n) => n.category === "OUTPUT_GATE").length,
       edges: annotatedGraph.edges.length,
     },
-    renderHint:
-      "Present a clean Mermaid flowchart LR diagram in your final response (using the mermaid field below or synthesizing an end-to-end flow from these findings).",
-    ...(includeMermaid ? { mermaid: formatGraphAsMermaid(annotatedGraph) } : {}),
     implicitWarnings,
     nodeIds: annotatedGraph.nodes.map((n) => ({
       id: n.id,

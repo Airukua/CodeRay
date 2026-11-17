@@ -23,7 +23,7 @@ server.registerTool(
   "scan_data_flow",
   {
     description:
-      "Scan TypeScript/React/Next.js and Python files using deterministic AST analysis, extract Input Gate -> State Machine / Implicit Warning -> Output Gate, and return a concise summary with an optional Mermaid flowchart LR diagram for the agent harness.",
+      "Scan TypeScript/React/Next.js and Python files using deterministic AST analysis, extract Input Gate -> State Machine / Implicit Warning -> Output Gate, and return a concise structured summary for the agent harness.",
     inputSchema: scanFlowInputSchema,
   },
   handleScanDataFlow

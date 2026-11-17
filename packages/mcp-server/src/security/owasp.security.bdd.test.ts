@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { formatGraphAsMermaid } from "../analyzers/mermaidFormatter.js";
 import { MAX_FILE_BYTES, resolveSandboxedPaths } from "../utils/pathGuard.js";
 
 describe("OWASP Security & Sandbox Assurance", () => {
@@ -66,32 +65,6 @@ describe("OWASP Security & Sandbox Assurance", () => {
       const res = await resolveSandboxedPaths(["huge.ts"], tmpRoot);
       expect(res.valid).toEqual([]);
       expect(res.rejected).toEqual(["huge.ts"]);
-    });
-  });
-
-  describe("A03: Injection — Mermaid Label Sanitization", () => {
-    it("neutralizes Mermaid syntax breakouts and HTML/script tags in labels", () => {
-      const mermaid = formatGraphAsMermaid({
-        timestamp: new Date().toISOString(),
-        projectRoot: tmpRoot,
-        nodes: [
-          {
-            id: "n1",
-            label: 'Evil"]; click n1 "javascript:alert(1)" <script>',
-            category: "IMPLICIT_WARNING",
-            language: "typescript",
-            filePath: "src/evil.ts",
-            lineRange: [1, 1],
-            schemaOrType: "a --> b; c | d",
-            codeSnippet: "",
-          },
-        ],
-        edges: [],
-      });
-
-      expect(mermaid).not.toContain('"];');
-      expect(mermaid).not.toContain("<script>");
-      expect(mermaid).not.toContain("-->");
     });
   });
 });

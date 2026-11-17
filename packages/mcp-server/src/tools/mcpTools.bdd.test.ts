@@ -96,21 +96,5 @@ describe("FlowGuard MCP Tools End-to-End", () => {
         expect(JSON.parse(unknownId.content[0].text).availableNodeIds.length).toBeGreaterThan(0);
       });
     });
-
-    describe("when scan_data_flow generates a Mermaid diagram", () => {
-      it("returns a flowchart LR diagram with subgraphs and classDef styles", async () => {
-        const scanRes = await handleScanDataFlow({ filePaths: ["handler.ts"] });
-        const json = JSON.parse(scanRes.content[0].text);
-        expect(json.mermaid).toContain("flowchart LR");
-        expect(json.mermaid).toContain("subgraph");
-        expect(json.mermaid).toContain("classDef implicitWarning");
-
-        const noMermaidRes = await handleScanDataFlow({
-          filePaths: ["handler.ts"],
-          includeMermaid: false,
-        });
-        expect(JSON.parse(noMermaidRes.content[0].text).mermaid).toBeUndefined();
-      });
-    });
   });
 });
