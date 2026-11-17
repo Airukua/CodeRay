@@ -1,6 +1,10 @@
 packages:
   - "packages/*"
 
+blockExoticSubdeps: true
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+
 allowBuilds:
   esbuild: set this to true or false
 
