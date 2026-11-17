@@ -17,6 +17,7 @@
 
   <p>
     <a href="https://github.com/Airukua/CodeRay/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Airukua/CodeRay/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white" alt="CI Status"></a>
+    <a href="https://github.com/Airukua/CodeRay/actions/workflows/security.yml"><img src="https://img.shields.io/github/actions/workflow/status/Airukua/CodeRay/security.yml?branch=main&style=flat-square&label=Security&logo=githubactions&logoColor=white" alt="Security Status"></a>
     <a href="https://github.com/Airukua/CodeRay/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-0ea5e9?style=flat-square" alt="MIT License"></a>
     <img src="https://img.shields.io/badge/MCP-2.4-7952B3?style=flat-square&logo=anthropic&logoColor=white" alt="MCP">
     <img src="https://img.shields.io/badge/Node-%3E%3D20-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js >= 20">
@@ -32,11 +33,11 @@
 
 ## What is CodeRay?
 
-**CodeRay MCP** is a deterministic code analysis and visualization system that exposes source-code architecture directly to AI coding agents.
+**CodeRay MCP** is a fast, headless, deterministic AST analysis server that exposes source-code architecture directly to AI coding agents via MCP (`stdio`).
 
-Traditional AI code analysis relies heavily on LLM interpretation. CodeRay takes a different approach: it uses **Web Tree-sitter AST parsing** to inspect source code, trace data flow, identify implicit state dependencies, and validate contracts across frontend and backend boundaries.
+Traditional AI code analysis relies heavily on LLM guesswork and burns tokens reading entire files. CodeRay uses **Web Tree-sitter WASM AST parsing** to inspect TypeScript, React/Next.js, and Python code, trace data flow, detect implicit state leaks, and validate cross-boundary contracts—returning compact, targeted JSON so your agent harness can reason or render Mermaid diagrams directly.
 
-Every scan is translated into a structured graph with strict architectural swimlanes:
+Every scan maps code into four architectural zones:
 
 | Zone | Purpose |
 | --- | --- |
@@ -45,7 +46,7 @@ Every scan is translated into a structured graph with strict architectural swiml
 | 🔴 **`IMPLICIT_WARNING`** | Where hidden dependencies and side effects are detected |
 | 🟣 **`OUTPUT_GATE`** | Where data leaves the system or produces external effects |
 
-The graph is streamed to a local **React Flow** visualizer, while MCP tools make the analysis accessible to coding agents. CodeRay makes code architecture **observable, traceable, and auditable**.
+CodeRay makes code architecture **observable, traceable, and auditable** without token bloat or external UI dependencies.
 
 ---
 
@@ -84,12 +85,11 @@ Compares architectural graphs between scans:
 
 This allows AI coding agents to detect unintended architectural changes instead of silently breaking existing outputs.
 
-### 5. Human-in-the-Loop Visualization
-CodeRay provides a local interactive React Flow interface:
-- Select individual nodes and edges.
-- Inspect architectural relationships and source snippets.
-- Add notes directly through the inspector drawer.
-- Let coding agents retrieve developer selections through `get_ui_selection`.
+### 5. Targeted & Token-Efficient AST Queries
+Designed for real-world agent harnesses:
+- **Category filtering** (`categories: ["INPUT_GATE", "IMPLICIT_WARNING"]`) to query only what matters.
+- **Output capping** (`limit`, default `50`) to prevent context-window bloat while keeping the full graph cached for `inspect_node_contract`.
+- **Recursive directory scanning** with `projectRoot` support and symlink/size-cap sandboxing (`1 MiB` per file, `500` files max).
 
 ### 6. MCP-Native Agent Integration
 CodeRay exposes its analysis capabilities directly to supported MCP clients:
@@ -105,16 +105,15 @@ CodeRay exposes its analysis capabilities directly to supported MCP clients:
 
 ```mermaid
 flowchart LR
-    Agent["Coding Agent<br/>Cursor / Claude Code / Antigravity"]
-    MCP["CodeRay MCP Server"]
+    Agent["Coding Agent Harness<br/>Cursor / Claude Code / Antigravity"]
+    MCP["CodeRay Headless MCP Server"]
     AST["web-tree-sitter WASM<br/>TypeScript / Python"]
-    Graph["3-Zone Graph<br/>Diff + Contract Matcher"]
-    UI["React Flow<br/>Live Visualizer"]
+    Graph["4-Zone Graph + Cache<br/>Diff + Contract Matcher"]
 
     Agent <-->|"JSON-RPC 2.0 (stdio)"| MCP
     MCP --> AST
     AST --> Graph
-    Graph <-->|"WebSocket :4123"| UI
+    Graph -->|"Compact JSON + Mermaid-ready data"| Agent
 ```
 
 ### Three-Zone Code Analysis
@@ -188,27 +187,30 @@ pnpm lint && pnpm typecheck && pnpm test
 npx @modelcontextprotocol/inspector node packages/mcp-server/dist/index.js
 ```
 
-Once connected, open **`http://localhost:4123`** in your browser.  
-The visualizer automatically falls back to ports `4124–4132` if port `4123` is occupied.
-
 ---
 
 ## MCP Tools
 
-CodeRay provides four tools for code analysis, architecture validation, and human-in-the-loop interaction.
+CodeRay provides three focused, headless tools for AST scanning, contract inspection, and architecture validation.
 
 | Tool | Description |
 | --- | --- |
-| **`scan_data_flow`** | Parses target files via AST, updates the live React Flow canvas, and returns a token-efficient summary, implicit warnings, and optional graph diff. |
-| **`inspect_node_contract`** | Returns the exact source snippet, `lineRange`, Zod/Pydantic/TS type contract, and incoming/outgoing edges. |
-| **`validate_architecture_rules`** | Audits files for `IMPLICIT_STATE_LEAK` and `CROSS_BOUNDARY_CONTRACT_MISMATCH`. |
-| **`get_ui_selection`** | Reads the currently selected node/edge and developer notes from the browser UI. |
+| **`scan_data_flow`** | Parses target files or directories via AST and returns a compact, token-efficient summary (`counts`, `implicitWarnings`, filtered `nodeIds`, and optional `diff`). |
+| **`inspect_node_contract`** | Returns the exact source snippet, `lineRange`, Zod/Pydantic/TS type contract, and incoming/outgoing edges for a cached node. |
+| **`validate_architecture_rules`** | Audits files/directories for `IMPLICIT_STATE_LEAK` and `CROSS_BOUNDARY_CONTRACT_MISMATCH` (supports `strictMode`). |
 
 ### Tool Parameters
 
 - **`scan_data_flow`**
   ```ts
-  { filePaths: string[]; includeDiff?: boolean; followLocalImports?: boolean; }
+  {
+    filePaths: string[];
+    projectRoot?: string;
+    categories?: ("INPUT_GATE" | "STATE_MACHINE" | "IMPLICIT_WARNING" | "OUTPUT_GATE")[];
+    limit?: number; // default 50
+    includeDiff?: boolean;
+    followLocalImports?: boolean;
+  }
   ```
 - **`inspect_node_contract`**
   ```ts
@@ -216,34 +218,27 @@ CodeRay provides four tools for code analysis, architecture validation, and huma
   ```
 - **`validate_architecture_rules`**
   ```ts
-  { filePaths: string[]; strictMode?: boolean; }
-  ```
-- **`get_ui_selection`**
-  ```ts
-  {}
+  { filePaths: string[]; projectRoot?: string; strictMode?: boolean; }
   ```
 
 ### Recommended Agent Workflow
 
 ```mermaid
 flowchart TD
-    A["Edit Source Code"] --> B["scan_data_flow"]
+    A["Target Files / Directories"] --> B["scan_data_flow (categories, limit)"]
     B --> C["validate_architecture_rules"]
     C --> D{"Validation Passed?"}
-    D -->|Yes| E["Continue Development"]
+    D -->|Yes| E["Synthesize Mermaid / Report"]
     D -->|No| F["inspect_node_contract"]
     F --> G["Fix Detected Issues"]
-    G --> H["Re-scan"]
+    G --> H["Re-scan (includeDiff: true)"]
     H --> B
-    I["Human Selects Node in UI"] --> J["get_ui_selection"]
-    J --> F
 ```
 
-1. Edit code and call `scan_data_flow` with `includeDiff: true`.
-2. Call `validate_architecture_rules` with `strictMode: true`.
-3. If the developer selects a node and requests a fix, call `get_ui_selection`.
-4. Use `inspect_node_contract` to inspect the selected node.
-5. Fix the source code and re-scan.
+1. Call `scan_data_flow` on targeted production directories/files (using `categories` and `limit` to minimize tokens).
+2. Call `validate_architecture_rules` with `strictMode: true` to enforce zero implicit state leaks.
+3. Use `inspect_node_contract` on flagged warnings or key nodes to inspect exact snippets and contracts.
+4. Fix issues, re-scan with `includeDiff: true`, and let the agent harness render a Mermaid diagram if needed.
 
 ---
 
@@ -262,12 +257,12 @@ flowchart TD
 
 ```text
 mcp-code-xray/
+├── .agents/skills/coderay-xray/  # Agent harness exclusion & X-Ray skill
 ├── packages/
-│   ├── shared/          # Zod v4 schemas & TypeScript types
-│   ├── mcp-server/      # MCP server + AST + HTTP/WS
-│   └── visualizer-ui/   # React 19 + Vite + Tailwind + React Flow
-├── .github/workflows/   # CI pipeline
-└── .husky/              # Pre-commit hooks
+│   ├── shared/                   # Zod v4 schemas & TypeScript types
+│   └── mcp-server/               # Headless MCP server + Tree-sitter AST + OWASP tests
+├── .github/workflows/            # CI & OWASP security pipelines
+└── .husky/                       # Pre-commit hooks
 ```
 
 ---
@@ -278,8 +273,9 @@ mcp-code-xray/
 | --- | --- |
 | `pnpm lint` | Oxlint with `--deny-warnings` |
 | `pnpm typecheck` | Strict TypeScript checks across packages |
-| `pnpm build` | Builds `shared`, `visualizer-ui`, and `mcp-server` |
-| `pnpm test` | BDD + Chaos Engineering test suite (Vitest) |
+| `pnpm build` | Builds `shared` and `mcp-server` |
+| `pnpm test` | BDD + OWASP Security + Chaos test suite (Vitest) |
+| `pnpm audit --prod --audit-level=high` | Dependency vulnerability audit |
 
 ---
 
@@ -291,14 +287,11 @@ mcp-code-xray/
 | --- | --- |
 | **Language** | TypeScript, Python |
 | **AST Engine** | `web-tree-sitter` WASM |
-| **MCP** | `@modelcontextprotocol/server` |
+| **MCP** | `@modelcontextprotocol/server` (stdio) |
 | **Validation** | Zod v4 |
-| **Frontend** | React 19, Vite |
-| **Visualization** | `@xyflow/react` |
-| **Graph Layout** | `@dagrejs/dagre` |
-| **Styling** | Tailwind CSS |
 | **Testing** | Vitest |
 | **Linting** | Oxlint |
+| **Security** | CodeQL, Semgrep (OWASP Top 10), Gitleaks |
 
 </div>
 
