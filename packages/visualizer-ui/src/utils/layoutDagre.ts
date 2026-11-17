@@ -31,15 +31,15 @@ function buildGroupedLayout(
     nodeToGroup.set(fn.id, key);
   }
 
-  const PAD_X = 28;
-  const PAD_TOP = 64;
-  const PAD_BOTTOM = 28;
-  const NODE_GAP_X = 180;
-  const NODE_GAP_Y = 56;
-  const MAX_COLS = 3;
-  const GROUP_GAP_X = 160;
+  const PAD_X = 24;
+  const PAD_TOP = 58;
+  const PAD_BOTTOM = 24;
+  const NODE_GAP_X = 160;
+  const NODE_GAP_Y = 36;
+  const MAX_COLS = 1;
+  const GROUP_GAP_X = 150;
   const GROUP_GAP_Y = 80;
-  const MAX_ROW_WIDTH = 2400;
+  const MAX_ROW_WIDTH = 99999;
 
   const resultNodes: Node[] = [];
   let cursorX = 40;
