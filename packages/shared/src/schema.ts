@@ -28,6 +28,8 @@ export const FlowNodeMetadataSchema = z.object({
   warningMessage: z.string().optional(),
   endpoint: z.string().optional(),
   fields: z.array(z.string()).optional(),
+  symbolName: z.string().optional(),
+  scopeName: z.string().optional(),
 });
 export type FlowNodeMetadata = z.infer<typeof FlowNodeMetadataSchema>;
 
@@ -38,6 +40,10 @@ export const FlowNodeSchema = z.object({
   language: SupportedLanguageSchema,
   filePath: z.string(),
   lineRange: z.tuple([z.number(), z.number()]),
+  group: z.string().optional(),
+  inputFormat: z.string().optional(),
+  description: z.string().optional(),
+  stepOrder: z.number().optional(),
   schemaOrType: z.string().optional(),
   codeSnippet: z.string(),
   diffStatus: DiffStatusSchema.optional(),
@@ -67,6 +73,8 @@ export type GraphDiff = z.infer<typeof GraphDiffSchema>;
 export const FlowGraphPayloadSchema = z.object({
   timestamp: z.string(),
   projectRoot: z.string(),
+  storyTitle: z.string().optional(),
+  storySummary: z.string().optional(),
   nodes: z.array(FlowNodeSchema),
   edges: z.array(FlowEdgeSchema),
   diff: GraphDiffSchema.optional(),

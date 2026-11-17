@@ -4,6 +4,49 @@ import { dedupeStrings, getSnippet, makeNodeId, walkAst } from "./astHelpers.js"
 
 const NEXT_HTTP_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 const STATE_HOOKS = new Set(["useState", "useReducer", "useContext", "useStore", "useSelector"]);
+const NON_DB_DELETE_RECEIVERS = /^(tree|parser|set|map|cache|headers|searchParams|params|.*Set|.*Map)$/i;
+
+type AstNode = Parameters<Parameters<typeof walkAst>[1]>[0];
+
+function getEnclosingVariableName(node: AstNode): string | undefined {
+  let curr = node.parent;
+  while (curr) {
+    if (curr.type === "variable_declarator") {
+      const nameNode = curr.childForFieldName("name");
+      if (nameNode?.type === "identifier") return nameNode.text;
+      if (nameNode?.type === "array_pattern") {
+        const first = nameNode.namedChildren[0];
+        if (first?.type === "identifier") return first.text;
+      }
+      return undefined;
+    }
+    if (curr.type === "function_declaration" || curr.type === "program") break;
+    curr = curr.parent;
+  }
+  return undefined;
+}
+
+function getEnclosingScopeName(node: AstNode): string | undefined {
+  let curr = node.parent;
+  while (curr) {
+    if (curr.type === "function_declaration" || curr.type === "method_definition") {
+      const name = curr.childForFieldName("name")?.text;
+      if (name) return name;
+    }
+    if (curr.type === "arrow_function" || curr.type === "function_expression") {
+      const varName = getEnclosingVariableName(curr);
+      if (varName) return varName;
+    }
+    curr = curr.parent;
+  }
+  return undefined;
+}
+
+function isNonDbDeleteCall(fnText: string): boolean {
+  if (!fnText.endsWith(".delete")) return false;
+  const receiver = fnText.slice(0, -".delete".length).split(".").pop() ?? "";
+  return NON_DB_DELETE_RECEIVERS.test(receiver);
+}
 
 function extractZodFieldsFromText(text: string): string[] {
   const match = /z\.object\s*\(\s*\{([\s\S]*?)\}\s*\)/.exec(text);
@@ -113,6 +156,11 @@ export async function analyzeTypeScript(
 
         if (fnText === "z.object") {
           const fields = extractZodFieldsFromText(fullText);
+          const symbolName = getEnclosingVariableName(node);
+          const schemaSummary =
+            fields.length > 0
+              ? `${symbolName ? `${symbolName} ` : ""}{ ${fields.join(", ")} }`
+              : fullText.slice(0, 120);
           addNode({
             id: makeNodeId("in", filePath, row, "zod_schema"),
             label: "Zod Schema",
@@ -120,20 +168,35 @@ export async function analyzeTypeScript(
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
-            schemaOrType: fullText.slice(0, 120),
+            schemaOrType: schemaSummary.slice(0, 120),
             codeSnippet: getSnippet(lines, row, endRow, 6),
-            metadata: fields.length > 0 ? { fields } : undefined,
+            metadata:
+              fields.length > 0 || symbolName
+                ? {
+                    ...(fields.length > 0 ? { fields } : {}),
+                    ...(symbolName ? { symbolName } : {}),
+                  }
+                : undefined,
           });
         } else if (STATE_HOOKS.has(fnText)) {
+          const stateVar = getEnclosingVariableName(node);
+          const scopeName = getEnclosingScopeName(node);
           addNode({
             id: makeNodeId("state", filePath, row, fnText),
-            label: `${fnText} State`,
+            label: stateVar ? `${fnText}: ${stateVar}` : `${fnText} State`,
             category: "STATE_MACHINE",
             language,
             filePath,
             lineRange: [row + 1, endRow + 1],
-            schemaOrType: fnText,
+            schemaOrType: fullText.replace(/\s+/g, " ").slice(0, 90),
             codeSnippet: getSnippet(lines, row, endRow, 4),
+            metadata:
+              stateVar || scopeName
+                ? {
+                    ...(stateVar ? { symbolName: stateVar } : {}),
+                    ...(scopeName ? { scopeName } : {}),
+                  }
+                : undefined,
           });
         } else if (fnText === "useEffect") {
           const argCount = argsNode?.namedChildren.length ?? 0;
@@ -183,7 +246,7 @@ export async function analyzeTypeScript(
               metadata: meta,
             });
           }
-        } else if (/\.(create|update|delete|insert)\b/.test(fnText)) {
+        } else if (/\.(create|update|delete|insert)\b/.test(fnText) && !isNonDbDeleteCall(fnText)) {
           addNode({
             id: makeNodeId("out", filePath, row, "db_write"),
             label: `DB Write (${fnText})`,
@@ -254,14 +317,18 @@ export async function analyzeTypeScript(
         node.type === "return_statement" &&
         (node.text.includes("<") && node.text.includes(">"))
       ) {
+        const scopeName = getEnclosingScopeName(node);
+        const firstJsxLine = getSnippet(lines, row, row + 1, 2).replace(/\s+/g, " ").trim();
         addNode({
           id: makeNodeId("out", filePath, row, "jsx_render"),
-          label: "JSX UI Render",
+          label: scopeName ? `JSX: ${scopeName}` : "JSX UI Render",
           category: "OUTPUT_GATE",
           language,
           filePath,
           lineRange: [row + 1, endRow + 1],
+          schemaOrType: firstJsxLine.slice(0, 90),
           codeSnippet: getSnippet(lines, row, endRow, 6),
+          metadata: scopeName ? { scopeName } : undefined,
         });
       }
     });

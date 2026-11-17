@@ -11,14 +11,16 @@ const WASM_FILES: Record<SupportedLanguage, string> = {
   python: "tree-sitter-wasms/out/tree-sitter-python.wasm",
 };
 
-let initPromise: Promise<void> | null = null;
+const wasmRuntime: { initPromise: Promise<void> | null } = {
+  initPromise: null,
+};
 const languageCache = new Map<SupportedLanguage, Parser.Language>();
 
 async function ensureInitialized(): Promise<void> {
-  if (!initPromise) {
-    initPromise = Parser.init();
+  if (!wasmRuntime.initPromise) {
+    wasmRuntime.initPromise = Parser.init();
   }
-  await initPromise;
+  await wasmRuntime.initPromise;
 }
 
 async function getLanguage(lang: SupportedLanguage): Promise<Parser.Language> {

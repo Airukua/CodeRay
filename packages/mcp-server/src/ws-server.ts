@@ -17,11 +17,17 @@ const MIME_TYPES: Record<string, string> = {
   ".js": "application/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".png": "image/png",
   ".json": "application/json",
 };
 
-let wss: WebSocketServer | null = null;
-let activePort: number | null = null;
+const wsState: {
+  wss: WebSocketServer | null;
+  activePort: number | null;
+} = {
+  wss: null,
+  activePort: null,
+};
 
 async function serveStatic(
   reqUrl: string,
@@ -60,7 +66,7 @@ export async function startVisualizerServer(
   for (let port = preferredPort; port < preferredPort + 10; port++) {
     const started = await tryBindPort(port);
     if (started) {
-      activePort = port;
+      wsState.activePort = port;
       console.error(`[FlowGuard] Visualizer UI + WebSocket running at http://localhost:${port}`);
       return port;
     }
@@ -86,7 +92,7 @@ function tryBindPort(port: number): Promise<boolean> {
 
     server.listen(port, "127.0.0.1", () => {
       const wsServer = new WebSocketServer({ server });
-      wss = wsServer;
+      wsState.wss = wsServer;
 
       wsServer.on("connection", (socket) => {
         if (serverState.currentGraph) {
@@ -117,9 +123,9 @@ function tryBindPort(port: number): Promise<boolean> {
 }
 
 export function broadcastGraphUpdate(payload: FlowGraphPayload): void {
-  if (!wss) return;
+  if (!wsState.wss) return;
   const frame = JSON.stringify({ type: "GRAPH_UPDATE", payload });
-  for (const client of wss.clients) {
+  for (const client of wsState.wss.clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(frame);
     }
@@ -127,5 +133,5 @@ export function broadcastGraphUpdate(payload: FlowGraphPayload): void {
 }
 
 export function getVisualizerUrl(): string | null {
-  return activePort ? `http://localhost:${activePort}` : null;
+  return wsState.activePort ? `http://localhost:${wsState.activePort}` : null;
 }

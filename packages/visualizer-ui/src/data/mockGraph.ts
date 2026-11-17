@@ -3,6 +3,8 @@ import type { FlowGraphPayload } from "@flowguard/shared";
 export const MOCK_GRAPH_PAYLOAD: FlowGraphPayload = {
   timestamp: new Date().toISOString(),
   projectRoot: "/home/rukua/mcp-code-xray/examples",
+  storyTitle: "Preview Story: Checkout & Order Processing Flow",
+  storySummary: "Traces user checkout submission from validated input payloads through state transitions & implicit leaks to final HTTP JSON responses.",
   nodes: [
     {
       id: "in_checkout_schema",
@@ -11,6 +13,9 @@ export const MOCK_GRAPH_PAYLOAD: FlowGraphPayload = {
       language: "typescript",
       filePath: "src/app/api/checkout/route.ts",
       lineRange: [4, 9],
+      stepOrder: 2,
+      inputFormat: "HTTP POST JSON Body",
+      description: "User clicks Pay; browser sends JSON { userId, amount } validated by CheckoutSchema.",
       schemaOrType: "z.object({ userId: z.string(), amount: z.number() })",
       codeSnippet: `const CheckoutSchema = z.object({\n  userId: z.string(),\n  amount: z.number().positive(),\n});`,
       metadata: { fields: ["userId", "amount"] },
@@ -22,6 +27,9 @@ export const MOCK_GRAPH_PAYLOAD: FlowGraphPayload = {
       language: "python",
       filePath: "backend/processor.py",
       lineRange: [6, 9],
+      stepOrder: 1,
+      inputFormat: "FastAPI JSON Request",
+      description: "Backend /process endpoint receives OrderRequest payload from checkout service.",
       schemaOrType: "Pydantic: OrderRequest",
       codeSnippet: `class OrderRequest(BaseModel):\n    user_id: str\n    amount: float`,
       metadata: { fields: ["user_id", "amount"] },
@@ -33,6 +41,8 @@ export const MOCK_GRAPH_PAYLOAD: FlowGraphPayload = {
       language: "tsx",
       filePath: "src/components/CheckoutForm.tsx",
       lineRange: [12, 12],
+      stepOrder: 3,
+      description: "Tracks UI checkout lifecycle from IDLE -> PROCESSING -> PAID.",
       schemaOrType: "'IDLE' | 'PROCESSING' | 'PAID'",
       codeSnippet: `const [orderStatus, setOrderStatus] = useState<'IDLE' | 'PROCESSING' | 'PAID'>('IDLE');`,
     },

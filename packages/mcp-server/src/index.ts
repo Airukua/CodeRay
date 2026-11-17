@@ -17,6 +17,10 @@ import {
   getUiSelectionInputSchema,
   handleGetUiSelection,
 } from "./tools/getUiSelection.js";
+import {
+  handlePublishFlowStory,
+  publishFlowStoryInputSchema,
+} from "./tools/publishFlowStory.js";
 import { startVisualizerServer } from "./ws-server.js";
 
 const server = new McpServer({
@@ -62,6 +66,16 @@ server.registerTool(
     inputSchema: getUiSelectionInputSchema,
   },
   handleGetUiSelection
+);
+
+server.registerTool(
+  "publish_flow_story",
+  {
+    description:
+      "Publish an end-to-end, human-readable Data Flow & Implicit State Machine story (from User Request -> Input Gate with explicit inputFormat -> State Machine / Implicit Warnings -> Final Output) synthesized from AST findings, and push it to the Visualizer UI.",
+    inputSchema: publishFlowStoryInputSchema,
+  },
+  handlePublishFlowStory
 );
 
 async function main(): Promise<void> {

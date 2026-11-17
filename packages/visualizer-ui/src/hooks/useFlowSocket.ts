@@ -8,7 +8,7 @@ import { MOCK_GRAPH_PAYLOAD } from "../data/mockGraph";
 
 export type SocketStatus = "connecting" | "connected" | "disconnected";
 
-export function useFlowSocket() {
+export function useFlowSocket(wsUrl = "ws://localhost:4123") {
   const [graph, setGraph] = useState<FlowGraphPayload>(MOCK_GRAPH_PAYLOAD);
   const [status, setStatus] = useState<SocketStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
@@ -19,12 +19,9 @@ export function useFlowSocket() {
 
     const connect = () => {
       if (cancelled) return;
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host || "localhost:4123";
-      const url = `${protocol}//${host}`;
 
       setStatus("connecting");
-      const ws = new WebSocket(url);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -61,7 +58,7 @@ export function useFlowSocket() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
-  }, []);
+  }, [wsUrl]);
 
   const sendSelection = useCallback((selection: Omit<UiSelection, "timestamp">) => {
     const ws = wsRef.current;
