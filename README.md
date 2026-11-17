@@ -16,12 +16,13 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
-    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-    <img src="https://img.shields.io/badge/MCP-Model_Context_Protocol-7952B3?style=for-the-badge&logoColor=white" alt="MCP">
-    <img src="https://img.shields.io/badge/AST-Tree--sitter-43853D?style=for-the-badge&logoColor=white" alt="Tree-sitter">
-    <img src="https://img.shields.io/badge/Visualizer-React_Flow-FF0072?style=for-the-badge&logoColor=white" alt="React Flow">
-    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
+    <a href="https://github.com/Airukua/CodeRay/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Airukua/CodeRay/ci.yml?branch=main&style=flat-square&label=CI&logo=githubactions&logoColor=white" alt="CI Status"></a>
+    <a href="https://github.com/Airukua/CodeRay/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-0ea5e9?style=flat-square" alt="MIT License"></a>
+    <img src="https://img.shields.io/badge/MCP-2.4-7952B3?style=flat-square&logo=anthropic&logoColor=white" alt="MCP">
+    <img src="https://img.shields.io/badge/Node-%3E%3D20-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node.js >= 20">
+    <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
+    <img src="https://img.shields.io/badge/Python-FastAPI-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+    <img src="https://img.shields.io/badge/AST-Tree--sitter-10b981?style=flat-square" alt="Tree-sitter">
   </p>
 
   <p>Created by <a href="https://github.com/AiRukua">Abdul Wahid Rukua</a></p>
