@@ -5,7 +5,7 @@
   "description": "FlowGuard MCP — Code X-Ray for React/Next.js & Python data-flow and implicit state visualization",
   "scripts": {
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @flowguard/shared build && pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix .",
