@@ -1,0 +1,30 @@
+{
+  "name": "flowguard-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FlowGuard MCP — Code X-Ray for React/Next.js & Python data-flow and implicit state visualization",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "oxlint --deny-warnings .",
+    "lint:fix": "oxlint --fix .",
+    "prepare": "husky",
+    "dev:ui": "pnpm --filter @flowguard/visualizer-ui dev",
+    "dev:mcp": "pnpm --filter @flowguard/mcp-server dev"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "oxlint --deny-warnings"
+    ]
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.1",
+    "oxlint": "^1.93.0",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
