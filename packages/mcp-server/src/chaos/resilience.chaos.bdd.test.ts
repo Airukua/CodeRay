@@ -1,14 +1,11 @@
 import fs from "node:fs/promises";
-import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { WebSocket } from "ws";
 import { analyzeTypeScript } from "../analyzers/tsReactAnalyzer.js";
 import { serverState } from "../state.js";
 import { handleScanDataFlow } from "../tools/scanFlow.js";
 import { handleValidateArchitectureRules } from "../tools/validateRules.js";
-import { startVisualizerServer } from "../ws-server.js";
 
 describe("Chaos Engineering & System Resilience", () => {
   let tmpDir: string;
@@ -18,7 +15,6 @@ describe("Chaos Engineering & System Resilience", () => {
     serverState.projectRoot = tmpDir;
     serverState.currentGraph = null;
     serverState.previousGraph = null;
-    serverState.activeUiSelection = null;
   });
 
   afterEach(async () => {
@@ -87,50 +83,6 @@ describe("Chaos Engineering & System Resilience", () => {
           expect(r.isError).toBeUndefined();
         }
       });
-    });
-  });
-
-  describe("given port exhaustion (EADDRINUSE) and hostile WebSocket frames", () => {
-    it("falls back to the next available port when preferred port is occupied", async () => {
-      const blocker = http.createServer();
-      await new Promise<void>((resolve) => blocker.listen(4180, "127.0.0.1", resolve));
-
-      try {
-        const boundPort = await startVisualizerServer(4180);
-        expect(boundPort).toBe(4181);
-      } finally {
-        blocker.close();
-      }
-    });
-
-    it("ignores malformed/hostile WebSocket payloads and still accepts valid UI_SELECTION afterward", async () => {
-      const port = await startVisualizerServer(4190);
-      expect(port).not.toBeNull();
-
-      const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-      await new Promise<void>((resolve) => ws.once("open", () => resolve()));
-
-      ws.send("{not valid json!!!");
-      ws.send(JSON.stringify({ type: "UNKNOWN_TYPE", payload: 12345 }));
-      ws.send(JSON.stringify({ type: "UI_SELECTION", payload: { invalidField: true } }));
-
-      ws.send(
-        JSON.stringify({
-          type: "UI_SELECTION",
-          payload: {
-            selectedNodeId: "chaos_node_1",
-            userNote: "Survived chaos!",
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-
-      // Give the event loop a brief moment to process the WebSocket frames
-      await new Promise((r) => setTimeout(r, 60));
-      ws.close();
-
-      expect(serverState.activeUiSelection?.selectedNodeId).toBe("chaos_node_1");
-      expect(serverState.activeUiSelection?.userNote).toBe("Survived chaos!");
     });
   });
 });

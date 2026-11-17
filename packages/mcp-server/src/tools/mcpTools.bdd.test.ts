@@ -2,11 +2,10 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { serverState, setUiSelection } from "../state.js";
+import { serverState } from "../state.js";
 import { handleScanDataFlow } from "../tools/scanFlow.js";
 import { handleInspectNodeContract } from "../tools/inspectNode.js";
 import { handleValidateArchitectureRules } from "../tools/validateRules.js";
-import { handleGetUiSelection } from "../tools/getUiSelection.js";
 
 describe("FlowGuard MCP Tools End-to-End", () => {
   let tmpDir: string;
@@ -17,7 +16,6 @@ describe("FlowGuard MCP Tools End-to-End", () => {
     serverState.projectRoot = tmpDir;
     serverState.currentGraph = null;
     serverState.previousGraph = null;
-    serverState.activeUiSelection = null;
 
     sampleTsFile = path.join(tmpDir, "handler.ts");
     await fs.writeFile(
@@ -99,26 +97,19 @@ describe("FlowGuard MCP Tools End-to-End", () => {
       });
     });
 
-    describe("when get_ui_selection is called before and after a user clicks a node in the browser", () => {
-      it("returns selected=false initially and returns the clicked node + userNote afterward", async () => {
-        const emptyRes = await handleGetUiSelection();
-        expect(JSON.parse(emptyRes.content[0].text).selected).toBe(false);
-
+    describe("when scan_data_flow generates a Mermaid diagram", () => {
+      it("returns a flowchart LR diagram with subgraphs and classDef styles", async () => {
         const scanRes = await handleScanDataFlow({ filePaths: ["handler.ts"] });
-        const warnId = JSON.parse(scanRes.content[0].text).implicitWarnings[0].nodeId;
+        const json = JSON.parse(scanRes.content[0].text);
+        expect(json.mermaid).toContain("flowchart LR");
+        expect(json.mermaid).toContain("subgraph");
+        expect(json.mermaid).toContain("classDef implicitWarning");
 
-        setUiSelection({
-          selectedNodeId: warnId,
-          filePath: "handler.ts",
-          userNote: "Move SECRET_TOKEN into validated config input",
-          timestamp: new Date().toISOString(),
+        const noMermaidRes = await handleScanDataFlow({
+          filePaths: ["handler.ts"],
+          includeMermaid: false,
         });
-
-        const activeRes = await handleGetUiSelection();
-        const activeJson = JSON.parse(activeRes.content[0].text);
-        expect(activeJson.selected).toBe(true);
-        expect(activeJson.node.id).toBe(warnId);
-        expect(activeJson.selection.userNote).toContain("SECRET_TOKEN");
+        expect(JSON.parse(noMermaidRes.content[0].text).mermaid).toBeUndefined();
       });
     });
   });

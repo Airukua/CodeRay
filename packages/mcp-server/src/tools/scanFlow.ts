@@ -3,9 +3,9 @@ import { z } from "zod";
 import { buildFlowGraph } from "../analyzers/graphBuilder.js";
 import { computeGraphDiff } from "../analyzers/graphDiff.js";
 import { resolveOneHopImports } from "../analyzers/importResolver.js";
+import { formatGraphAsMermaid } from "../analyzers/mermaidFormatter.js";
 import { serverState, updateGraphState } from "../state.js";
 import { resolveSandboxedPaths } from "../utils/pathGuard.js";
-import { broadcastGraphUpdate, getVisualizerUrl } from "../ws-server.js";
 
 export const scanFlowInputSchema = {
   filePaths: z
@@ -24,6 +24,10 @@ export const scanFlowInputSchema = {
     .boolean()
     .optional()
     .describe("Automatically include 1-hop local imports from the specified files"),
+  includeMermaid: z
+    .boolean()
+    .optional()
+    .describe("Include a ready-to-render Mermaid flowchart LR diagram (defaults to true)"),
 };
 
 export async function handleScanDataFlow(args: {
@@ -31,6 +35,7 @@ export async function handleScanDataFlow(args: {
   projectRoot?: string;
   includeDiff?: boolean;
   followLocalImports?: boolean;
+  includeMermaid?: boolean;
 }) {
   if (args.projectRoot) {
     serverState.projectRoot = path.resolve(args.projectRoot);
@@ -67,7 +72,6 @@ export async function handleScanDataFlow(args: {
     : { diff: undefined, annotatedGraph: rawGraph };
 
   updateGraphState(annotatedGraph);
-  broadcastGraphUpdate(annotatedGraph);
 
   const implicitWarnings = annotatedGraph.nodes
     .filter((n) => n.category === "IMPLICIT_WARNING")
@@ -79,10 +83,10 @@ export async function handleScanDataFlow(args: {
       warning: n.metadata?.warningMessage,
     }));
 
+  const includeMermaid = args.includeMermaid !== false;
+
   const summary = {
-    visualizerUrl: getVisualizerUrl(),
     scannedFilesCount: targetFiles.length,
-    rejectedPaths: rejected.length > 0 ? rejected : undefined,
     counts: {
       inputGates: annotatedGraph.nodes.filter((n) => n.category === "INPUT_GATE").length,
       stateMachines: annotatedGraph.nodes.filter((n) => n.category === "STATE_MACHINE").length,
@@ -91,15 +95,21 @@ export async function handleScanDataFlow(args: {
       edges: annotatedGraph.edges.length,
     },
     implicitWarnings,
-    diff,
     nodeIds: annotatedGraph.nodes.map((n) => ({
       id: n.id,
       category: n.category,
       label: n.label,
     })),
+    ...(includeMermaid ? { mermaid: formatGraphAsMermaid(annotatedGraph) } : {}),
+    ...(diff ? { diff } : {}),
   };
 
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(summary, null, 2) }],
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(summary, null, 2),
+      },
+    ],
   };
 }

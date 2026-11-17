@@ -10,7 +10,6 @@
     "lint": "oxlint --deny-warnings .",
     "lint:fix": "oxlint --fix .",
     "prepare": "husky",
-    "dev:ui": "pnpm --filter @flowguard/visualizer-ui dev",
     "dev:mcp": "pnpm --filter @flowguard/mcp-server dev"
   },
   "lint-staged": {

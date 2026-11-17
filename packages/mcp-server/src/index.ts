@@ -13,15 +13,6 @@ import {
   handleValidateArchitectureRules,
   validateRulesInputSchema,
 } from "./tools/validateRules.js";
-import {
-  getUiSelectionInputSchema,
-  handleGetUiSelection,
-} from "./tools/getUiSelection.js";
-import {
-  handlePublishFlowStory,
-  publishFlowStoryInputSchema,
-} from "./tools/publishFlowStory.js";
-import { startVisualizerServer } from "./ws-server.js";
 
 const server = new McpServer({
   name: "coderay-mcp",
@@ -32,7 +23,7 @@ server.registerTool(
   "scan_data_flow",
   {
     description:
-      "Scan TypeScript/React/Next.js and Python files using deterministic AST analysis, extract Input Gate -> State Machine / Implicit Warning -> Output Gate, push the graph to the local Visualizer UI via WebSocket, and return a concise summary (with optional diff and 1-hop local import tracing).",
+      "Scan TypeScript/React/Next.js and Python files using deterministic AST analysis, extract Input Gate -> State Machine / Implicit Warning -> Output Gate, and return a concise summary with an optional Mermaid flowchart LR diagram for the agent harness.",
     inputSchema: scanFlowInputSchema,
   },
   handleScanDataFlow
@@ -58,34 +49,13 @@ server.registerTool(
   handleValidateArchitectureRules
 );
 
-server.registerTool(
-  "get_ui_selection",
-  {
-    description:
-      "Get the currently selected node or edge (and optional user note) clicked by the human developer in the local FlowGuard Visualizer UI.",
-    inputSchema: getUiSelectionInputSchema,
-  },
-  handleGetUiSelection
-);
-
-server.registerTool(
-  "publish_flow_story",
-  {
-    description:
-      "Publish an end-to-end, human-readable Data Flow & Implicit State Machine story (from User Request -> Input Gate with explicit inputFormat -> State Machine / Implicit Warnings -> Final Output) synthesized from AST findings, and push it to the Visualizer UI.",
-    inputSchema: publishFlowStoryInputSchema,
-  },
-  handlePublishFlowStory
-);
-
 async function main(): Promise<void> {
-  await startVisualizerServer(4123);
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[FlowGuard] MCP Server connected via stdio");
+  console.error("[CodeRay] Headless MCP Server connected via stdio");
 }
 
 main().catch((error) => {
-  console.error("[FlowGuard] Fatal error:", error);
+  console.error("[CodeRay] Fatal error:", error);
   process.exit(1);
 });
