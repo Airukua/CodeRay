@@ -326,6 +326,8 @@ mcp-code-xray/
 
 ## Documentation
 
+- [Getting Started & Agent Setup (English)](./tutorials/getting-started.en.md)
+- [Panduan Instalasi & Penggunaan (Bahasa Indonesia)](./tutorials/getting-started.id.md)
 - [Contributing Guide](./CONTRIBUTING.md)
 - [Code of Conduct](./CODE_OF_CONDUCT.md)
 - [MIT License](./LICENSE)
