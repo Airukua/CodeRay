@@ -3,6 +3,22 @@ import type { FlowEdge, FlowNode } from "@flowguard/shared";
 import { withParsedTree } from "./astEngine.js";
 import { dedupeStrings, getSnippet, makeNodeId, walkAst } from "./astHelpers.js";
 
+function getEnclosingPythonScope(node: Parser.SyntaxNode): string | undefined {
+  let fnName: string | undefined;
+  let className: string | undefined;
+  let curr = node.parent;
+  while (curr) {
+    if (!fnName && curr.type === "function_definition") {
+      fnName = curr.childForFieldName("name")?.text;
+    } else if (!className && curr.type === "class_definition") {
+      className = curr.childForFieldName("name")?.text;
+    }
+    curr = curr.parent;
+  }
+  if (className && fnName) return `${className}.${fnName}`;
+  return fnName ?? className;
+}
+
 function extractPydanticFields(classNode: Parser.SyntaxNode): string[] {
   const fields: string[] = [];
   const body = classNode.childForFieldName("body");
@@ -129,6 +145,7 @@ export async function analyzePython(
 
       // Implicit Warning: `global` keyword
       if (node.type === "global_statement") {
+        const scope = getEnclosingPythonScope(node);
         addNode({
           id: makeNodeId("warn", filePath, row, "global_stmt"),
           label: node.text.trim(),
@@ -141,6 +158,7 @@ export async function analyzePython(
           metadata: {
             isMutatedExternally: true,
             warningMessage: `Use of '${node.text.trim()}' mutates module-level global state.`,
+            ...(scope ? { scopeName: scope } : {}),
           },
         });
       }
@@ -149,6 +167,7 @@ export async function analyzePython(
       if (node.type === "attribute" || node.type === "call") {
         const t = node.text;
         if (t === "os.environ" || t.startsWith("os.getenv(")) {
+          const scope = getEnclosingPythonScope(node);
           addNode({
             id: makeNodeId("warn", filePath, row, "os_env"),
             label: `Implicit ${t.split("(")[0]}`,
@@ -160,6 +179,7 @@ export async function analyzePython(
             codeSnippet: getSnippet(lines, row, row, 2),
             metadata: {
               warningMessage: `Direct access to '${t.split("(")[0]}' bypasses explicit function/config Input Gate.`,
+              ...(scope ? { scopeName: scope } : {}),
             },
           });
         }
@@ -167,18 +187,21 @@ export async function analyzePython(
 
       // State Machine: match/case or self.<attr> mutation
       if (node.type === "match_statement") {
+        const scope = getEnclosingPythonScope(node);
         addNode({
           id: makeNodeId("state", filePath, row, "match_case"),
-          label: "match / case State",
+          label: scope ? `match / case (${scope})` : "match / case State",
           category: "STATE_MACHINE",
           language: "python",
           filePath,
           lineRange: [row + 1, endRow + 1],
           codeSnippet: getSnippet(lines, row, endRow, 6),
+          metadata: scope ? { scopeName: scope } : undefined,
         });
-      } else if (node.type === "assignment") {
+      } else if (node.type === "assignment" || node.type === "augmented_assignment") {
         const left = node.childForFieldName("left")?.text ?? "";
         if (left.startsWith("self.")) {
+          const scope = getEnclosingPythonScope(node);
           addNode({
             id: makeNodeId("state", filePath, row, left),
             label: `Mutates ${left}`,
@@ -186,8 +209,9 @@ export async function analyzePython(
             language: "python",
             filePath,
             lineRange: [row + 1, endRow + 1],
-            schemaOrType: "Class Instance State",
+            schemaOrType: node.text.replace(/\s+/g, " ").slice(0, 90),
             codeSnippet: getSnippet(lines, row, endRow, 2),
+            metadata: scope ? { scopeName: scope, symbolName: left } : { symbolName: left },
           });
         }
       }
@@ -196,6 +220,7 @@ export async function analyzePython(
       if (node.type === "call") {
         const fnText = node.childForFieldName("function")?.text ?? "";
         if (fnText === "JSONResponse") {
+          const scope = getEnclosingPythonScope(node);
           addNode({
             id: makeNodeId("out", filePath, row, "json_response"),
             label: "JSONResponse",
@@ -204,8 +229,10 @@ export async function analyzePython(
             filePath,
             lineRange: [row + 1, endRow + 1],
             codeSnippet: getSnippet(lines, row, endRow, 4),
+            metadata: scope ? { scopeName: scope } : undefined,
           });
         } else if (fnText.endsWith(".add") || fnText.endsWith(".commit")) {
+          const scope = getEnclosingPythonScope(node);
           addNode({
             id: makeNodeId("out", filePath, row, "db_write"),
             label: `ORM Write (${fnText})`,
@@ -214,17 +241,21 @@ export async function analyzePython(
             filePath,
             lineRange: [row + 1, endRow + 1],
             codeSnippet: getSnippet(lines, row, endRow, 3),
+            metadata: scope ? { scopeName: scope } : undefined,
           });
         }
       } else if (node.type === "return_statement" && !node.text.includes("JSONResponse")) {
+        const scope = getEnclosingPythonScope(node);
         addNode({
           id: makeNodeId("out", filePath, row, "return"),
-          label: "return",
+          label: scope ? `return (${scope})` : "return",
           category: "OUTPUT_GATE",
           language: "python",
           filePath,
           lineRange: [row + 1, endRow + 1],
+          schemaOrType: node.text.replace(/\s+/g, " ").slice(0, 90),
           codeSnippet: getSnippet(lines, row, endRow, 3),
+          metadata: scope ? { scopeName: scope } : undefined,
         });
       }
     });
@@ -237,6 +268,9 @@ export async function analyzePython(
     const outputs = nodes.filter((n) => n.category === "OUTPUT_GATE");
 
     const addEdge = (source: FlowNode, target: FlowNode, label?: string) => {
+      const srcScope = source.metadata?.scopeName;
+      const tgtScope = target.metadata?.scopeName;
+      if (srcScope && tgtScope && srcScope !== tgtScope) return;
       const isImplicitLeak =
         source.category === "IMPLICIT_WARNING" || target.category === "IMPLICIT_WARNING";
       edges.push({
