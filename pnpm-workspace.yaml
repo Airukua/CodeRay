@@ -3,7 +3,14 @@ packages:
 
 blockExoticSubdeps: true
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@rollup/*"
+  - "rollup"
+  - "lint-staged"
+  - "postcss"
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  - "undici-types"
 
 allowBuilds:
   esbuild: set this to true or false
