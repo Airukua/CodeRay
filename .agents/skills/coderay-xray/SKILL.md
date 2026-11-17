@@ -31,11 +31,12 @@ Skip the following paths unless the user explicitly asks to audit them:
 
 1. **Discover & Filter Targets**
    - List `.ts`, `.tsx`, and `.py` files in the target directory, excluding the patterns in Section 1.
-2. **Run Deterministic AST Scan & Rule Audit**
-   - Call `scan_data_flow` with the filtered `filePaths` and explicit `projectRoot` (absolute workspace path). It returns structured `counts`, `implicitWarnings`, `nodeIds`, and a baseline `mermaid` diagram.
-   - Call `validate_architecture_rules` on the same filtered `filePaths` and `projectRoot` to catch `IMPLICIT_STATE_LEAK` and cross-boundary contract mismatches.
-3. **Inspect Key Nodes for Context**
-   - Use `inspect_node_contract` (or read the relevant lines) on key Input Gates, State Machines, Implicit Warnings, and Output Gates to trace the real end-to-end journey.
+2. **Run Targeted, Token-Efficient AST Scan & Rule Audit**
+   - Call `scan_data_flow` with the filtered `filePaths`, explicit `projectRoot` (absolute workspace path), `categories` (e.g. `["INPUT_GATE", "STATE_MACHINE", "IMPLICIT_WARNING"]` when auditing state/leaks), and a tight `limit` (e.g. `20–50`) to minimize token consumption.
+   - Call `validate_architecture_rules` (`strictMode: true` when strict auditing is desired) on the same targets to catch `IMPLICIT_STATE_LEAK` and cross-boundary contract mismatches.
+3. **Inspect Flagged Nodes & Critical Boundaries**
+   - Use `inspect_node_contract` only on flagged warnings or key nodes instead of reading every raw file.
+   - Only read raw source lines on critical state/orchestration files when checking subtle semantic patterns not yet covered by AST rules (such as property mutations on `const` object containers or ambient clock calls).
 4. **Render Detailed Mermaid Diagram in the Agent Harness**
    - Present a clean `flowchart LR` Mermaid block directly in your response (or artifact):
      - Group stages with `subgraph` (e.g., `Input & Validation`, `State Machine & Guards`, `Implicit State / Leaks`, `Output`).
