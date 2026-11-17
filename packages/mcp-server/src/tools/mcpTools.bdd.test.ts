@@ -96,5 +96,18 @@ describe("FlowGuard MCP Tools End-to-End", () => {
         expect(JSON.parse(unknownId.content[0].text).availableNodeIds.length).toBeGreaterThan(0);
       });
     });
+
+    describe("when scan_data_flow uses categories and limit to save tokens", () => {
+      it("filters nodeIds by category and caps output with truncatedNodes", async () => {
+        const filtered = await handleScanDataFlow({
+          filePaths: ["handler.ts"],
+          categories: ["IMPLICIT_WARNING"],
+          limit: 1,
+        });
+        const json = JSON.parse(filtered.content[0].text);
+        expect(json.nodeIds).toHaveLength(1);
+        expect(json.nodeIds[0].category).toBe("IMPLICIT_WARNING");
+      });
+    });
   });
 });

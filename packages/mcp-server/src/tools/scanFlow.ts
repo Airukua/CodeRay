@@ -1,20 +1,34 @@
 import path from "node:path";
 import { z } from "zod";
+import { NodeCategorySchema, type NodeCategory } from "@flowguard/shared";
 import { buildFlowGraph } from "../analyzers/graphBuilder.js";
 import { computeGraphDiff } from "../analyzers/graphDiff.js";
 import { resolveOneHopImports } from "../analyzers/importResolver.js";
 import { serverState, updateGraphState } from "../state.js";
 import { resolveSandboxedPaths } from "../utils/pathGuard.js";
 
+const DEFAULT_NODE_LIMIT = 50;
+
 export const scanFlowInputSchema = {
   filePaths: z
     .array(z.string())
     .min(1)
-    .describe("File or directory paths (.ts, .tsx, .py) to scan"),
+    .describe("Targeted file or directory paths (.ts, .tsx, .py) to scan"),
   projectRoot: z
     .string()
     .optional()
     .describe("Optional absolute workspace root directory (useful when MCP server cwd differs from active project)"),
+  categories: z
+    .array(NodeCategorySchema)
+    .optional()
+    .describe("Optional category filter (e.g. ['INPUT_GATE', 'IMPLICIT_WARNING']) to minimize token output"),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Max nodes to include in nodeIds output (defaults to 50; full graph stays cached for inspect_node_contract)"),
   includeDiff: z
     .boolean()
     .optional()
@@ -28,6 +42,8 @@ export const scanFlowInputSchema = {
 export async function handleScanDataFlow(args: {
   filePaths: string[];
   projectRoot?: string;
+  categories?: NodeCategory[];
+  limit?: number;
   includeDiff?: boolean;
   followLocalImports?: boolean;
 }) {
@@ -77,6 +93,13 @@ export async function handleScanDataFlow(args: {
       warning: n.metadata?.warningMessage,
     }));
 
+  const categoryFilter = args.categories ? new Set(args.categories) : null;
+  const filteredNodes = categoryFilter
+    ? annotatedGraph.nodes.filter((n) => categoryFilter.has(n.category))
+    : annotatedGraph.nodes;
+  const maxNodes = args.limit ?? DEFAULT_NODE_LIMIT;
+  const slicedNodes = filteredNodes.slice(0, maxNodes);
+
   const summary = {
     scannedFilesCount: targetFiles.length,
     counts: {
@@ -87,11 +110,14 @@ export async function handleScanDataFlow(args: {
       edges: annotatedGraph.edges.length,
     },
     implicitWarnings,
-    nodeIds: annotatedGraph.nodes.map((n) => ({
+    nodeIds: slicedNodes.map((n) => ({
       id: n.id,
       category: n.category,
       label: n.label,
     })),
+    ...(filteredNodes.length > slicedNodes.length
+      ? { truncatedNodes: filteredNodes.length - slicedNodes.length }
+      : {}),
     ...(diff ? { diff } : {}),
   };
 
@@ -99,7 +125,7 @@ export async function handleScanDataFlow(args: {
     content: [
       {
         type: "text" as const,
-        text: JSON.stringify(summary, null, 2),
+        text: JSON.stringify(summary),
       },
     ],
   };
