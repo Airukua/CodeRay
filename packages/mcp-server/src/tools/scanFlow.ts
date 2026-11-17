@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 import { buildFlowGraph } from "../analyzers/graphBuilder.js";
 import { computeGraphDiff } from "../analyzers/graphDiff.js";
@@ -10,7 +11,11 @@ export const scanFlowInputSchema = {
   filePaths: z
     .array(z.string())
     .min(1)
-    .describe("Relative or absolute file paths (.ts, .tsx, .py) to scan"),
+    .describe("File or directory paths (.ts, .tsx, .py) to scan"),
+  projectRoot: z
+    .string()
+    .optional()
+    .describe("Optional absolute workspace root directory (useful when MCP server cwd differs from active project)"),
   includeDiff: z
     .boolean()
     .optional()
@@ -23,10 +28,15 @@ export const scanFlowInputSchema = {
 
 export async function handleScanDataFlow(args: {
   filePaths: string[];
+  projectRoot?: string;
   includeDiff?: boolean;
   followLocalImports?: boolean;
 }) {
-  const { valid, rejected } = resolveSandboxedPaths(
+  if (args.projectRoot) {
+    serverState.projectRoot = path.resolve(args.projectRoot);
+  }
+
+  const { valid, rejected } = await resolveSandboxedPaths(
     args.filePaths,
     serverState.projectRoot
   );

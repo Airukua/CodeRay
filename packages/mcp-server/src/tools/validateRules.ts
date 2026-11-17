@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 import type { ArchitectureViolation } from "@flowguard/shared";
 import { buildFlowGraph } from "../analyzers/graphBuilder.js";
@@ -9,7 +10,11 @@ export const validateRulesInputSchema = {
   filePaths: z
     .array(z.string())
     .min(1)
-    .describe("Files to validate against FlowGuard architecture rules"),
+    .describe("Files or directories to validate against CodeRay architecture rules"),
+  projectRoot: z
+    .string()
+    .optional()
+    .describe("Optional absolute workspace root directory"),
   strictMode: z
     .boolean()
     .optional()
@@ -18,9 +23,14 @@ export const validateRulesInputSchema = {
 
 export async function handleValidateArchitectureRules(args: {
   filePaths: string[];
+  projectRoot?: string;
   strictMode?: boolean;
 }) {
-  const { valid, rejected } = resolveSandboxedPaths(
+  if (args.projectRoot) {
+    serverState.projectRoot = path.resolve(args.projectRoot);
+  }
+
+  const { valid, rejected } = await resolveSandboxedPaths(
     args.filePaths,
     serverState.projectRoot
   );
