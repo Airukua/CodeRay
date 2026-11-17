@@ -9,25 +9,26 @@ function normalizeEndpoint(ep: string): string {
   return ep.replace(/^https?:\/\/[^/]+/, "").replace(/\/+$/, "");
 }
 
-export async function buildFlowGraph(
-  absFilePaths: string[],
+export interface SourceEntry {
+  relPath: string;
+  code: string;
+}
+
+/**
+ * Builds a FlowGraphPayload from in-memory source entries (used by both disk scans
+ * and Git baseline drift comparisons).
+ */
+export async function buildFlowGraphFromSources(
+  sources: SourceEntry[],
   projectRoot: string
 ): Promise<FlowGraphPayload> {
   const allNodes: FlowNode[] = [];
   const allEdges: FlowEdge[] = [];
 
-  for (const absPath of absFilePaths) {
-    const lang = detectLanguage(absPath);
+  for (const { relPath, code } of sources) {
+    const lang = detectLanguage(relPath);
     if (!lang) continue;
 
-    let code: string;
-    try {
-      code = await fs.readFile(absPath, "utf-8");
-    } catch {
-      continue;
-    }
-
-    const relPath = path.relative(projectRoot, absPath) || path.basename(absPath);
     const result =
       lang === "python"
         ? await analyzePython(code, relPath)
@@ -66,4 +67,24 @@ export async function buildFlowGraph(
     nodes: allNodes,
     edges: allEdges,
   };
+}
+
+export async function buildFlowGraph(
+  absFilePaths: string[],
+  projectRoot: string
+): Promise<FlowGraphPayload> {
+  const sources: SourceEntry[] = [];
+
+  for (const absPath of absFilePaths) {
+    if (!detectLanguage(absPath)) continue;
+    try {
+      const code = await fs.readFile(absPath, "utf-8");
+      const relPath = path.relative(projectRoot, absPath) || path.basename(absPath);
+      sources.push({ relPath, code });
+    } catch {
+      continue;
+    }
+  }
+
+  return buildFlowGraphFromSources(sources, projectRoot);
 }

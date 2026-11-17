@@ -13,6 +13,10 @@ import {
   handleValidateArchitectureRules,
   validateRulesInputSchema,
 } from "./tools/validateRules.js";
+import {
+  checkDriftInputSchema,
+  handleCheckArchitectureDrift,
+} from "./tools/checkDrift.js";
 
 const server = new McpServer({
   name: "coderay-mcp",
@@ -47,6 +51,16 @@ server.registerTool(
     inputSchema: validateRulesInputSchema,
   },
   handleValidateArchitectureRules
+);
+
+server.registerTool(
+  "check_architecture_drift",
+  {
+    description:
+      "Compare Git baseline AST vs working-tree AST across TypeScript and Python files to detect AI-introduced implicit state leaks, removed input gates, contract mismatches, test-tampering, and AI-slop complexity, returning a GREEN/YELLOW/RED risk tier and PASS/FAIL oracle.",
+    inputSchema: checkDriftInputSchema,
+  },
+  handleCheckArchitectureDrift
 );
 
 async function main(): Promise<void> {

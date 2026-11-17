@@ -191,13 +191,14 @@ npx @modelcontextprotocol/inspector node packages/mcp-server/dist/index.js
 
 ## MCP Tools
 
-CodeRay provides three focused, headless tools for AST scanning, contract inspection, and architecture validation.
+CodeRay provides four focused, headless tools for AST scanning, contract inspection, architecture validation, and AI drift verification.
 
 | Tool | Description |
 | --- | --- |
-| **`scan_data_flow`** | Parses target files or directories via AST and returns a compact, token-efficient summary (`counts`, `implicitWarnings`, filtered `nodeIds`, and optional `diff`). |
+| **`scan_data_flow`** | Parses target files or directories via AST and returns a compact, token-efficient summary (`counts`, `implicitWarnings`, filtered `nodeIds` with `inputFormat`/`outputFormat`/`contract`, and optional `diff`). |
 | **`inspect_node_contract`** | Returns the exact source snippet, `lineRange`, Zod/Pydantic/TS type contract, and incoming/outgoing edges for a cached node. |
 | **`validate_architecture_rules`** | Audits files/directories for `IMPLICIT_STATE_LEAK` and `CROSS_BOUNDARY_CONTRACT_MISMATCH` (supports `strictMode`). |
+| **`check_architecture_drift`** | Compares Git baseline AST (`baseRef`, default `HEAD`) vs working-tree AST across TypeScript and Python to detect new implicit leaks, removed input gates, contract drift, AI-slop complexity/type-bypasses, and test-tampering—returning a `GREEN`/`YELLOW`/`RED` risk tier and `passed` oracle. |
 
 ### Tool Parameters
 
@@ -220,25 +221,27 @@ CodeRay provides three focused, headless tools for AST scanning, contract inspec
   ```ts
   { filePaths: string[]; projectRoot?: string; strictMode?: boolean; }
   ```
+- **`check_architecture_drift`**
+  ```ts
+  { projectRoot?: string; baseRef?: string; filePaths?: string[]; strictMode?: boolean; }
+  ```
 
 ### Recommended Agent Workflow
 
 ```mermaid
 flowchart TD
-    A["Target Files / Directories"] --> B["scan_data_flow (categories, limit)"]
-    B --> C["validate_architecture_rules"]
-    C --> D{"Validation Passed?"}
-    D -->|Yes| E["Synthesize Mermaid / Report"]
-    D -->|No| F["inspect_node_contract"]
-    F --> G["Fix Detected Issues"]
-    G --> H["Re-scan (includeDiff: true)"]
-    H --> B
+    A["AI Edits Code"] --> B["check_architecture_drift (baseRef: HEAD)"]
+    B --> C{"passed === true (GREEN/YELLOW)?"}
+    C -->|Yes| D["Ready for Human Review"]
+    C -->|No (RED)| E["inspect_node_contract / Fix Leaks & Tampering"]
+    E --> F["Re-run check_architecture_drift"]
+    F --> C
 ```
 
-1. Call `scan_data_flow` on targeted production directories/files (using `categories` and `limit` to minimize tokens).
-2. Call `validate_architecture_rules` with `strictMode: true` to enforce zero implicit state leaks.
+1. For full codebase mapping, call `scan_data_flow` on targeted production directories/files (using `categories` and `limit` to minimize tokens).
+2. After an AI coding agent edits files, call `check_architecture_drift` (with `strictMode: true`) as a deterministic Stop Hook / CI gate to catch new implicit leaks, removed input gates, AI-slop type bypasses, or test tampering.
 3. Use `inspect_node_contract` on flagged warnings or key nodes to inspect exact snippets and contracts.
-4. Fix issues, re-scan with `includeDiff: true`, and let the agent harness render a Mermaid diagram if needed.
+4. Fix issues and re-run `check_architecture_drift` until `passed: true`.
 
 ---
 
