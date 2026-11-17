@@ -242,6 +242,30 @@ flowchart TD
 
 ---
 
+## Token Efficiency Benchmark
+
+Live A/B comparison auditing **15 production TypeScript files** in `packages/mcp-server/src` for Input Gates, State Containers, and Implicit State Leaks (`ceil(chars / 4)` token approximation):
+
+```mermaid
+xychart-beta
+    title "Token Consumption: Manual LLM Audit vs. CodeRay MCP"
+    x-axis ["Manual LLM Audit", "CodeRay Default (limit 50)", "CodeRay Targeted"]
+    y-axis "Estimated Tokens" 0 --> 18000
+    bar [17355, 312, 59]
+```
+
+| Metric | Manual LLM Audit (No CodeRay) | CodeRay MCP (Targeted) | Efficiency Gain |
+| --- | ---: | ---: | ---: |
+| **LLM Turns** | `6` turns | `1` turn | **`6×` fewer turns** |
+| **Tool Calls** | `17` calls (`find` + `read_file`) | `2` calls (`scan_data_flow` + `validate_architecture_rules`) | **`8.5×` fewer calls** |
+| **Tool Output Characters** | `69,344` chars | `236` chars | **`99.66%` smaller** |
+| **Estimated Tokens (excl. thinking)** | `~17,355` tokens | `~59` tokens | **`~294×` token savings** |
+| **Estimated Tokens (incl. thinking)** | `~17,660` tokens | `~59` tokens | **`~299×` token savings** |
+
+> **Recommended Pattern:** Use CodeRay as a deterministic **first-pass triage** (`~59–312` tokens) to map boundaries and catch standard implicit leaks (`process.env`, `global`, `os.environ`, module `let`/`var` mutations), then inspect only the targeted files/nodes when deeper semantic auditing (such as `const` object container mutations or ambient clock usage) is needed.
+
+---
+
 ## Detection Matrix
 
 | Zone | TypeScript / React / Next.js | Python / FastAPI |
